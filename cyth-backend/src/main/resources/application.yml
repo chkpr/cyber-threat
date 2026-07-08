@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: cyth-backend
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cyberthreat}
+    username: ${DB_USER:cyberthreat}
+    password: ${DB_PASSWORD:cyberthreat}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  # Collection schedule: every hour, on the hour (Spring cron: sec min hour day month weekday)
+  collect:
+    cron: "0 0 * * * *"
+    run-on-startup: true
+  hackernews:
+    top-count: 50
+    min-score: 50
+    security-only: true
+  cors:
+    allowed-origin: http://localhost:4200
+
+logging:
+  level:
+    com.chkpr.cyberthreat: INFO
