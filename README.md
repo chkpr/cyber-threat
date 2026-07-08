@@ -1,30 +1,53 @@
-# cyber-threat — backend
+# cyber-threat (vibe-coded with Claude)
 
-Cyber threat intelligence watch tool. Spring Boot backend: scheduled collectors
-pull from public sources, dedup + score them, route critical items, and serve a
-daily digest to the Angular front.
+Cyber threat intelligence tool built with Angular and Spring Boot.
+
+Scheduled collectors pull from public sources (CISA KEV, Hacker News), deduplicate
+and score the items, route actively-exploited vulnerabilities as critical alerts,
+and serve a daily digest to an Angular front end.
+
+## Repository layout
+
+- `cyth-backend/` — Spring Boot API: collectors, scoring, digest endpoints
+- `cyth-frontend/` — Angular app: digest page consuming the API
 
 ## Requirements
 
 - Java 21
-- PostgreSQL running locally (or set `DB_URL` / `DB_USER` / `DB_PASSWORD`)
+- Node.js + Angular CLI
+- PostgreSQL running locally
 
-Create the database:
+## Database setup
 
-```sql
-CREATE DATABASE cyberthreat;
-CREATE USER cyberthreat WITH PASSWORD 'cyberthreat';
-GRANT ALL PRIVILEGES ON DATABASE cyberthreat TO cyberthreat;
-```
+Create the database (choose a real password, then provide it to the backend
+through the `DB_PASSWORD` environment variable):
 
-## Run
+    CREATE DATABASE cyberthreat;
+    CREATE USER cyberthreat WITH PASSWORD '<your-password>';
+    GRANT ALL PRIVILEGES ON DATABASE cyberthreat TO cyberthreat;
+    ALTER SCHEMA public OWNER TO cyberthreat;
 
-```bash
-./mvnw spring-boot:run
-```
+On PostgreSQL 15+, the schema-ownership line is required so the app user can
+create tables. If local connections fail with an "Ident authentication" error,
+set the `127.0.0.1/32` and `::1/128` lines in `pg_hba.conf` to `md5` and reload
+PostgreSQL.
+
+## Running the backend
+
+From `cyth-backend/`:
+
+    ./gradlew bootRun
 
 On startup the collectors run once (`app.collect.run-on-startup: true`), so the
 digest has data immediately. Afterwards they run every hour.
+
+## Running the frontend
+
+From `cyth-frontend/`:
+
+    ng serve
+
+Then open http://localhost:4200. The backend must be running on port 8080.
 
 ## API
 
@@ -33,27 +56,28 @@ digest has data immediately. Afterwards they run every hour.
 
 Quick check:
 
-```bash
-curl http://localhost:8080/api/digest | jq
-```
+    curl http://localhost:8080/api/digest | jq
 
-## Structure
+## Backend structure
 
-```
-config/    RestClient + CORS
-item/      Item entity, repository, service, controller, DTOs
-collect/   Collector interface, RawItem, scheduler, CISA KEV + Hacker News
-process/   dedup + ingestion, scoring / critical routing
-```
+- `config/` — RestClient, CORS, global exception handler
+- `item/` — Item entity, repository, service, controller, DTOs
+- `collect/` — Collector interface, RawItem, scheduler, CISA KEV + Hacker News collectors
+- `process/` — deduplication + ingestion, scoring and critical routing
 
-## Adding a source
+Adding a source: implement `Collector`, annotate it with `@Component`. The
+scheduler discovers it automatically — nothing else to change.
 
-Implement `Collector`, annotate with `@Component`. The scheduler picks it up
-automatically — nothing else to change.
+## Frontend structure
 
-## Not wired yet
+- `core/models/` — TypeScript mirrors of the API DTOs
+- `core/services/` — `DigestService` (HTTP calls to the backend)
+- `features/digest/` — digest page: stats, critical alerts, item cards + actions
 
-- LLM summaries (`SummaryService` via Spring AI) — `Item.summary` stays null.
-- `Source` as an entity with learnable weights (currently a string + in-memory map).
-- RSS + GitHub Releases collectors (Rome dependency is already present).
-```
+## Roadmap
+
+- LLM summaries (`SummaryService` via Spring AI + Ollama) — `Item.summary` is null for now.
+- `Source` as a persisted entity with learnable weights (currently a string + in-memory
+  map), so user actions (read later / archive / ignore) adjust scoring over time.
+- RSS + GitHub Releases collectors (the Rome dependency is already present).
+- Authentication before any deployment beyond localhost.
