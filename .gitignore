@@ -22,3 +22,13 @@ Thumbs.db
 # ---- Logs / env ----
 *.log
 .env
+
+# Eclipse output
+cyth-backend/bin/
+
+# Angular
+cyth-frontend/node_modules/
+cyth-frontend/dist/
+cyth-frontend/.angular/
+cyth-frontend/coverage/
+bin/
