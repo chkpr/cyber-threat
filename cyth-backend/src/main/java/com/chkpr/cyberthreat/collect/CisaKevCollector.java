@@ -4,12 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,10 +28,15 @@ public class CisaKevCollector implements Collector {
             "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
 
     private final RestClient restClient;
+    
+    @Value("${app.kev.max-age-days:14}")
+    private int maxAgeDays;
 
     public CisaKevCollector(RestClient restClient) {
         this.restClient = restClient;
     }
+    
+
 
     @Override
     public String name() {
@@ -56,6 +63,14 @@ public class CisaKevCollector implements Collector {
                         .atStartOfDay(ZoneOffset.UTC)
                         .toInstant();
             }
+            
+            if (publishedAt != null && maxAgeDays > 0) {
+                Instant cutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
+                if (publishedAt.isBefore(cutoff)) {
+                    continue; // entrée KEV trop ancienne pour une veille quotidienne
+                }
+            }
+            
             List<String> tags = new ArrayList<>();
             tags.add("cve");
             if (v.vendorProject() != null) {
@@ -95,5 +110,13 @@ public class CisaKevCollector implements Collector {
             String shortDescription,
             String knownRansomwareCampaignUse
     ) {
+    }
+    
+    private boolean isTooOld(Instant publishedAt) {
+        if (publishedAt == null) {
+            return true; // pas de date -> on ne peut pas garantir la récidence, on exclut
+        }
+        Instant cutoff = Instant.now().minus(maxAgeDays, ChronoUnit.DAYS);
+        return publishedAt.isBefore(cutoff);
     }
 }
