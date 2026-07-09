@@ -1,5 +1,6 @@
 package com.chkpr.cyberthreat.item;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
@@ -17,4 +18,7 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
     long countByCollectedAtAfter(Instant instant);
 
     long countByUserAction(ItemAction action);
+
+    /** Highest-scored items that still need an LLM summary. */
+    List<Item> findBySummaryIsNullOrderByScoreDesc(Pageable pageable);
 }
