@@ -82,8 +82,8 @@ interface Brick {
     .state { color: #888; padding: 24px 0; }
     .state.err { color: #a32d2d; }
 
-    .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start;}
-    .brick { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; }
+    .bento { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 14px; align-items: start;}
+    .brick { background: #fff; min-width: 0; overflow-wrap: break-word; word-break: break-word; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; }
     .brick.critical { border-color: #e79a9a; background: #fffafa; }
 
     .brick-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
@@ -94,7 +94,7 @@ interface Brick {
 
     .entry { padding: 6px 0; border-top: 1px solid #f0efe9; }
     .entry:first-of-type { border-top: none; }
-    .entry-title { display: block; font-size: 14px; color: #1a1a1a; text-decoration: none; line-height: 1.4; }
+    .entry-title { display: block; overflow-wrap: break-word; word-break: break-word; font-size: 14px; color: #1a1a1a; text-decoration: none; line-height: 1.4; }
     .entry-title:hover { text-decoration: underline; }
     .entry-summary { font-size: 13px; color: #666; line-height: 1.5; margin: 4px 0 0; }
     .entry-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
