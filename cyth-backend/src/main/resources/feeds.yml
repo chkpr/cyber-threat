@@ -1,0 +1,17 @@
+app:
+  rss:
+    feeds:
+      - { name: CERT-FR, url: "https://www.cert.ssi.gouv.fr/feed/" }
+      - { name: Bleeping Computer, url: "https://www.bleepingcomputer.com/feed/" }
+      - { name: The Hacker News, url: "https://feeds.feedburner.com/TheHackersNews" }
+      - { name: SANS ISC, url: "https://isc.sans.edu/rssfeed.xml" }
+      - { name: Cisco Talos, url: "https://blog.talosintelligence.com/rss/" }
+      - { name: Securelist, url: "https://securelist.com/feed/" }
+      - { name: Check Point Research, url: "https://research.checkpoint.com/feed/" }
+      - { name: Unit 42, url: "https://unit42.paloaltonetworks.com/feed/" }
+      - { name: Project Zero, url: "https://googleprojectzero.blogspot.com/feeds/posts/default" }
+      - { name: Krebs on Security, url: "https://krebsonsecurity.com/feed/" }
+      - { name: Schneier on Security, url: "https://www.schneier.com/feed/atom/" }
+      - { name: TechCrunch Security, url: "https://techcrunch.com/tag/security/feed/" }
+      - { name: GitHub Security, url: "https://github.blog/security/feed/" }
+      - { name: Fedora Magazine, url: "https://fedoramagazine.org/feed/" }
