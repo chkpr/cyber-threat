@@ -1,20 +1,23 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { DigestService } from '../../core/services/digest.service';
 import { DigestResponse, ItemDto, ItemAction } from '../../core/models/digest.model';
 
+interface Brick {
+  name: string;
+  critical: boolean;
+  items: ItemDto[];
+}
+
 @Component({
   selector: 'app-digest-page',
-  imports: [DecimalPipe],
+  imports: [],
   template: `
     <div class="page">
       <header class="head">
         <div>
           <h1>Digest du jour</h1>
           @if (digest(); as d) {
-            <p class="sub">
-              {{ d.items.length + d.alerts.length }} items retenus
-            </p>
+            <p class="sub">{{ d.items.length + d.alerts.length }} items · {{ bricks().length }} sources</p>
           }
         </div>
         <button class="btn" (click)="load()">Régénérer</button>
@@ -24,89 +27,53 @@ import { DigestResponse, ItemDto, ItemAction } from '../../core/models/digest.mo
         <p class="state">Chargement…</p>
       } @else if (error()) {
         <p class="state err">{{ error() }}</p>
-      } @else if (digest(); as d) {
-
-        <div class="stats">
-          <div class="stat">
-            <span class="stat-label">Nouveautés</span>
-            <span class="stat-value">{{ d.stats.newToday }}</span>
-          </div>
-          <div class="stat danger">
-            <span class="stat-label">Alertes critiques</span>
-            <span class="stat-value">{{ d.stats.criticalAlerts }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">Sources</span>
-            <span class="stat-value">{{ d.stats.sources }}</span>
-          </div>
-          <div class="stat">
-            <span class="stat-label">À lire</span>
-            <span class="stat-value">{{ d.stats.toRead }}</span>
-          </div>
-        </div>
-
-        @if (d.alerts.length) {
-          <h2 class="section danger-text">Exploité activement — priorité absolue</h2>
-          @for (item of d.alerts; track item.id) {
-            <article class="card alert">
-              <div class="badges">
-                <span class="badge badge-danger">{{ item.source }}</span>
-                @if (item.cvssScore != null) {
-                  <span class="badge badge-cvss">CVSS {{ item.cvssScore }}</span>
-                }
+      } @else if (digest()) {
+        <div class="bento">
+          @for (brick of bricks(); track brick.name) {
+            <section class="brick" [class.critical]="brick.critical">
+              <div class="brick-head">
+                <span class="brick-name">{{ brick.name }}</span>
+                <span class="brick-count" [class.count-danger]="brick.critical">{{ brick.items.length }}</span>
               </div>
-              <a class="title" [href]="item.url" target="_blank" rel="noopener">{{ item.title }}</a>
-              @if (item.summary) {
-                <p class="summary">{{ item.summary }}</p>
-              }
-              <div class="card-foot">
-                <div class="tags">
-                  @for (tag of item.tags; track tag) {
-                    <span class="tag">{{ tag }}</span>
+
+              @for (item of visibleItems(brick); track item.id) {
+                <div class="entry">
+                  <a class="entry-title" [href]="item.url" target="_blank" rel="noopener">{{ item.title }}</a>
+                  @if (isExpanded(brick.name)) {
+                    @if (item.summary) {
+                      <p class="entry-summary">{{ item.summary }}</p>
+                    }
+                    <div class="entry-foot">
+                      <div class="tags">
+                        @for (tag of item.tags; track tag) {
+                          <span class="tag">{{ tag }}</span>
+                        }
+                      </div>
+                      <div class="actions">
+                        <button class="icon" title="Lire plus tard" (click)="act(item, 'READ_LATER')">★</button>
+                        <button class="icon" title="Archiver" (click)="act(item, 'ARCHIVE')">✓</button>
+                        <button class="icon" title="Ignorer" (click)="act(item, 'IGNORE')">✕</button>
+                      </div>
+                    </div>
                   }
                 </div>
-                <div class="actions">
-                  <button class="icon" title="Lire plus tard" (click)="act(item, 'READ_LATER')">★</button>
-                  <button class="icon" title="Archiver" (click)="act(item, 'ARCHIVE')">✓</button>
-                  <button class="icon" title="Ignorer" (click)="act(item, 'IGNORE')">✕</button>
-                </div>
-              </div>
-            </article>
-          }
-        }
+              }
 
-        <h2 class="section muted">Reste du digest</h2>
-        @for (item of d.items; track item.id) {
-          <article class="card">
-            <div class="badges">
-              <span class="badge">{{ item.source }}</span>
-              <span class="score">score {{ item.score | number: '1.0-1' }}</span>
-            </div>
-            <a class="title" [href]="item.url" target="_blank" rel="noopener">{{ item.title }}</a>
-            @if (item.summary) {
-              <p class="summary">{{ item.summary }}</p>
-            }
-            <div class="card-foot">
-              <div class="tags">
-                @for (tag of item.tags; track tag) {
-                  <span class="tag">{{ tag }}</span>
-                }
-              </div>
-              <div class="actions">
-                <button class="icon" title="Lire plus tard" (click)="act(item, 'READ_LATER')">★</button>
-                <button class="icon" title="Archiver" (click)="act(item, 'ARCHIVE')">✓</button>
-                <button class="icon" title="Ignorer" (click)="act(item, 'IGNORE')">✕</button>
-              </div>
-            </div>
-          </article>
-        } @empty {
-          <p class="state">Rien pour l'instant — les collecteurs n'ont peut-être pas encore tourné.</p>
-        }
+              @if (brick.items.length > 3) {
+                <button class="more" (click)="toggle(brick.name)">
+                  {{ isExpanded(brick.name) ? 'Réduire' : 'Voir tout (' + brick.items.length + ')' }}
+                </button>
+              } @else if (brick.items.length === 0) {
+                <p class="empty">—</p>
+              }
+            </section>
+          }
+        </div>
       }
     </div>
   `,
   styles: `
-    .page { max-width: 760px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, sans-serif; color: #1a1a1a; }
+    .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, sans-serif; color: #1a1a1a; }
     .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
     h1 { font-size: 22px; font-weight: 600; margin: 0; }
     .sub { color: #888; font-size: 13px; margin: 2px 0 0; }
@@ -114,32 +81,33 @@ import { DigestResponse, ItemDto, ItemAction } from '../../core/models/digest.mo
     .btn:hover { background: #f5f5f5; }
     .state { color: #888; padding: 24px 0; }
     .state.err { color: #a32d2d; }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 24px; }
-    .stat { background: #f4f2ec; border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; }
-    .stat.danger { background: #fcebeb; }
-    .stat-label { font-size: 13px; color: #888; }
-    .stat.danger .stat-label { color: #a32d2d; }
-    .stat-value { font-size: 24px; font-weight: 600; }
-    .stat.danger .stat-value { color: #a32d2d; }
-    .section { font-size: 14px; font-weight: 600; margin: 20px 0 10px; }
-    .section.muted { color: #888; }
-    .danger-text { color: #a32d2d; }
-    .card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
-    .card.alert { border-color: #e79a9a; }
-    .badges { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
-    .badge { font-size: 12px; padding: 2px 9px; border-radius: 20px; background: #f1efe8; color: #5f5e5a; }
-    .badge-danger { background: #fcebeb; color: #a32d2d; }
-    .badge-cvss { background: #fcebeb; color: #791f1f; }
-    .score { font-size: 12px; color: #999; }
-    .title { display: block; font-size: 15px; font-weight: 600; color: #1a1a1a; text-decoration: none; margin-bottom: 4px; }
-    .title:hover { text-decoration: underline; }
-    .summary { font-size: 14px; color: #555; line-height: 1.5; margin: 0; }
-    .card-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
-    .tags { display: flex; gap: 6px; flex-wrap: wrap; }
-    .tag { font-family: monospace; font-size: 11px; background: #f4f2ec; color: #666; padding: 2px 8px; border-radius: 6px; }
+
+    .bento { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start;}
+    .brick { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; }
+    .brick.critical { border-color: #e79a9a; background: #fffafa; }
+
+    .brick-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .brick-name { font-size: 13px; font-weight: 600; }
+    .brick.critical .brick-name { color: #a32d2d; }
+    .brick-count { background: #f4f2ec; color: #666; font-size: 12px; padding: 1px 8px; border-radius: 20px; }
+    .count-danger { background: #fcebeb; color: #a32d2d; }
+
+    .entry { padding: 6px 0; border-top: 1px solid #f0efe9; }
+    .entry:first-of-type { border-top: none; }
+    .entry-title { display: block; font-size: 14px; color: #1a1a1a; text-decoration: none; line-height: 1.4; }
+    .entry-title:hover { text-decoration: underline; }
+    .entry-summary { font-size: 13px; color: #666; line-height: 1.5; margin: 4px 0 0; }
+    .entry-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+    .tags { display: flex; gap: 5px; flex-wrap: wrap; }
+    .tag { font-family: monospace; font-size: 11px; background: #f4f2ec; color: #666; padding: 1px 7px; border-radius: 6px; }
     .actions { display: flex; gap: 4px; }
-    .icon { width: 30px; height: 30px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    .icon { width: 26px; height: 26px; border: 1px solid #ddd; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; }
     .icon:hover { background: #f5f5f5; }
+
+    .more { margin-top: 10px; width: 100%; border: 1px solid #e5e5e5; background: #fafafa; border-radius: 8px;
+      padding: 6px; cursor: pointer; font-size: 12px; color: #555; }
+    .more:hover { background: #f0f0f0; }
+    .empty { color: #bbb; font-size: 13px; margin: 4px 0 0; }
   `
 })
 export class DigestPageComponent implements OnInit {
@@ -148,6 +116,30 @@ export class DigestPageComponent implements OnInit {
   readonly digest = signal<DigestResponse | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly expanded = signal<Set<string>>(new Set());
+
+  readonly bricks = computed<Brick[]>(() => {
+    const d = this.digest();
+    if (!d) return [];
+
+    const result: Brick[] = [];
+    if (d.alerts.length) {
+      result.push({ name: 'Critique', critical: true, items: d.alerts });
+    }
+
+    const bySource = new Map<string, ItemDto[]>();
+    for (const item of d.items) {
+      const arr = bySource.get(item.source) ?? [];
+      arr.push(item);
+      bySource.set(item.source, arr);
+    }
+
+    const sourceBricks = [...bySource.entries()]
+      .map(([name, items]) => ({ name, critical: false, items }))
+      .sort((a, b) => b.items.length - a.items.length);
+
+    return [...result, ...sourceBricks];
+  });
 
   ngOnInit(): void {
     this.load();
@@ -166,6 +158,24 @@ export class DigestPageComponent implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  isExpanded(name: string): boolean {
+    return this.expanded().has(name);
+  }
+
+  toggle(name: string): void {
+    const next = new Set(this.expanded());
+    if (next.has(name)) {
+      next.delete(name);
+    } else {
+      next.add(name);
+    }
+    this.expanded.set(next);
+  }
+
+  visibleItems(brick: Brick): ItemDto[] {
+    return this.isExpanded(brick.name) ? brick.items : brick.items.slice(0, 3);
   }
 
   act(item: ItemDto, action: ItemAction): void {
