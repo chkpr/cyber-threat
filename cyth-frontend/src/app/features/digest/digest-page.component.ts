@@ -20,7 +20,13 @@ interface Brick {
             <p class="sub">{{ d.items.length + d.alerts.length }} items · {{ bricks().length }} sources</p>
           }
         </div>
-        <button class="btn" (click)="load()">Régénérer</button>
+        <div class="head-actions">
+          <div class="sort-toggle">
+            <button [class.active]="sortMode() === 'score'" (click)="sortMode.set('score')">Score</button>
+            <button [class.active]="sortMode() === 'date'" (click)="sortMode.set('date')">Date</button>
+          </div>
+          <button class="btn" (click)="load()">Régénérer</button>
+        </div>
       </header>
 
       @if (loading()) {
@@ -76,6 +82,11 @@ interface Brick {
     .page { max-width: 1200px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, sans-serif; color: #1a1a1a; }
     .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
     h1 { font-size: 22px; font-weight: 600; margin: 0; }
+    .head-actions { display: flex; align-items: center; gap: 10px; }
+    .sort-toggle { display: inline-flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+    .sort-toggle button { border: none; background: #fff; padding: 6px 12px; font-size: 13px; cursor: pointer; color: #666; }
+    .sort-toggle button:hover { background: #f5f5f5; }
+    .sort-toggle button.active { background: #1a1a1a; color: #fff; }
     .sub { color: #888; font-size: 13px; margin: 2px 0 0; }
     .btn { border: 1px solid #ccc; background: #fff; border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 13px; }
     .btn:hover { background: #f5f5f5; }
@@ -117,14 +128,27 @@ export class DigestPageComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly expanded = signal<Set<string>>(new Set());
+  readonly sortMode = signal<'score' | 'date'>('score');
 
   readonly bricks = computed<Brick[]>(() => {
     const d = this.digest();
     if (!d) return [];
 
+    const mode = this.sortMode();
+
+    const sortItems = (items: ItemDto[]): ItemDto[] =>
+      [...items].sort((a, b) => {
+        if (mode === 'date') {
+          const da = a.publishedAt ? Date.parse(a.publishedAt) : 0;
+          const db = b.publishedAt ? Date.parse(b.publishedAt) : 0;
+          return db - da; // plus récent d'abord
+        }
+        return b.score - a.score; // meilleur score d'abord
+      });
+
     const result: Brick[] = [];
     if (d.alerts.length) {
-      result.push({ name: 'Critique', critical: true, items: d.alerts });
+      result.push({ name: 'Critique', critical: true, items: sortItems(d.alerts) });
     }
 
     const bySource = new Map<string, ItemDto[]>();
@@ -135,7 +159,7 @@ export class DigestPageComponent implements OnInit {
     }
 
     const sourceBricks = [...bySource.entries()]
-      .map(([name, items]) => ({ name, critical: false, items }))
+      .map(([name, items]) => ({ name, critical: false, items: sortItems(items) }))
       .sort((a, b) => b.items.length - a.items.length);
 
     return [...result, ...sourceBricks];
