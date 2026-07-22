@@ -36,10 +36,12 @@ interface Brick {
       } @else if (digest()) {
         <div class="bento">
           @for (brick of bricks(); track brick.name) {
-            <section class="brick" [class.critical]="brick.critical">
-              <div class="brick-head">
+            <section class="brick" [class.critical]="brick.critical" [class.expanded]="isExpanded(brick.name)">
+              <div class="brick-head" (click)="toggle(brick.name)">
                 <span class="brick-name">{{ brick.name }}</span>
-                <span class="brick-count" [class.count-danger]="brick.critical">{{ brick.items.length }}</span>
+                <span class="brick-count" [class.count-danger]="brick.critical">
+                    {{ brick.items.length }} {{ isExpanded(brick.name) ? '▲' : '▼' }}
+                </span>
               </div>
 
               @for (item of visibleItems(brick); track item.id) {
@@ -97,7 +99,9 @@ interface Brick {
     .brick { background: #fff; min-width: 0; overflow-wrap: break-word; word-break: break-word; border: 1px solid #e5e5e5; border-radius: 12px; padding: 14px; }
     .brick.critical { border-color: #e79a9a; background: #fffafa; }
 
-    .brick-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .brick-head { cursor: pointer; position: sticky; top: 0; background: inherit; padding-bottom: 8px; z-index: 1; }
+    .brick-head:hover .brick-name { text-decoration: underline; }
+    .brick.expanded { max-height: 70vh; overflow: auto; }
     .brick-name { font-size: 13px; font-weight: 600; }
     .brick.critical .brick-name { color: #a32d2d; }
     .brick-count { background: #f4f2ec; color: #666; font-size: 12px; padding: 1px 8px; border-radius: 20px; }
